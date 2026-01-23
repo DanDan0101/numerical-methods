@@ -1,0 +1,370 @@
+\documentclass[12pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[sexy]{evan}
+
+\usepackage{physics}
+\usepackage{esint}
+\usepackage{tensor}
+\usepackage{simpler-wick}
+\usepackage{cancel}
+\usepackage{slashed}
+\usepackage{bbm}
+
+\usepackage{empheq}
+\usepackage{graphicx}
+\usepackage[export]{adjustbox}
+\usepackage{pgfplots}
+\pgfplotsset{width=10cm,compat=1.9}
+
+\usepackage{tikz}
+% \usetikzlibrary{quantikz2}
+\usetikzlibrary{cd}
+
+% \usepackage[style=phys]{biblatex}
+% \addbibresource{references.bib}
+
+\newcommand{\normord}[1]{%
+  :\mathrel{\mspace{2mu}#1\mspace{2mu}}:%
+}
+\newcommand{\fd}[1]{\includegraphics[page=#1,valign=c]{feynman.pdf}}
+\newcommand{\dbar}{{d\mkern-7mu\mathchar'26\mkern-2mu}}
+
+\title{Numerical Methods}
+\author{Daniel Sun}
+\date{Winter 2026}
+
+\setlength{\marginparwidth}{2cm}
+\begin{document}
+
+\maketitle
+
+\renewcommand\arraystretch{1.5}
+
+\tableofcontents
+\listoftheorems
+\newpage
+\section{Introduction}
+\subsection{Computers}
+Modern \textbf{computers} are \textbf{digital} machines. In contrast to \textbf{analog} computing, information is encoded in discrete digits, usually \textbf{bits}.
+
+Although modern computers are highly complex, we can think of them as having several key elements (\textbf{von Neumann architecture}):
+\begin{itemize}
+    \item \textbf{Memory.} We can read/write temporary data to memory. We store data and instructions here. Data transfer between RAM and CPU is very fast.
+    \item \textbf{CPU.} The CPU evaluates instructions and performs simple arithmetic. Most modern CPUs come with multiple cores, and each CPU comes with a cache.
+    \item \textbf{GPU.} The GPU is like a CPU, but better at parallelized floating-point operations. GPUs come with their own VRAM.
+    \item \textbf{Storage.} We can read/write permanent data to storage. Data transfer to and from storage is relatively slow.
+    \item \textbf{Network.}
+    \item \textbf{I/O.} Equipment for HCI.
+\end{itemize}
+
+\section{Algorithms}
+\subsection{Root-Finding}
+\begin{problem}[Root-finding]
+    Consider a function $f:\RR\to\RR$. With the promise that a root exists, find $x\in\RR$ such that $f(x)=0$.
+\end{problem}
+Generically, there's no closed-form solution. There exists a rich family of numerical algorithms for root-finding. We'll study a few simple cases.
+\subsubsection{Bisection}
+\begin{algorithm}[Bisection]
+    Suppose that we want to find the roots of a continuous function $f$.
+    \begin{enumerate}
+        \item Find $a<b$ such that $f(a)f(b)<0$ (i.e. $f(a)$ and $f(b)$ have opposite sign).
+        \item Consider the midpoint $c=\frac{a+b}2$. Now, conditional on $f(c)$,
+        \begin{itemize}
+            \item If $f(c)=0$, we are done.
+            \item If $f(a)f(c)<0$, we iterate the algorithm with $a$ and $c$.
+            \item Otherwise, we must have $f(b)f(c)<0$. We iterate the algorithm with $c$ and $b$.
+        \end{itemize}
+        \item Repeat this algorithm until the desired precision is attained.
+    \end{enumerate}
+\end{algorithm}
+If we can find an adequate starting condition, bisection will \textbf{always} give a root. Define the error
+\[\eps_n\equiv x_n-x_*,\]
+where $x_*$ is the root. The error at each step goes as
+\[\eps_{n+1}=\frac12\eps_n.\]
+Then, we can bound the error after $n$ steps as
+\[\eps_n\leq 2^{-n}(b-a).\]
+We say this algorithm has \textbf{linear convergence}, where we get a constant number of bits per iteration. Unfortunately, bisection does \textit{not} work for even-degree roots and multiple-dimensional functions.
+\subsubsection{Newton-Raphson Method}
+\begin{algorithm}[Newton-Raphson method]
+    Suppose that we want to find the roots of a differentiable function $f$. Start from some guess in the domain, $x_0$.
+    
+    Given a guess $x_n$, make the next guess by following the tangent line to its $x$-intercept,
+    \[x_{n+1}=x_n-\frac{f(x_n)}{f'(x_n)}.\]
+\end{algorithm}
+What's the error of this algorithm? Suppose that $x_n=x_*+\eps_n$, where $x_*$ is the root. Then
+\begin{align*}
+    x_*+\eps_{n+1}&=x_*+\eps_n-\frac{f(x_*+\eps_n)}{f'(x_*+\eps_n)}\\
+    &\approx x_*+\eps_n-\frac{\eps_nf'(x_*)+\frac12\eps_n^2f''(x_*)}{f'(x_*)+\eps_nf''(x_*)}\\
+    &\approx x_*+\frac{\eps_n^2}{2}\frac{f''(x_*)}{f'(x_*)}.
+\end{align*}
+Therefore,
+\[\boxed{\eps_{n+1}\approx\frac12\frac{f''(x_*)}{f'(x_*)}\eps_n^2}.\]
+We say this algorithm has \textbf{quadratic convergence}. Where this method works, it is extremely fast, approaching machine precision after only a few iterations.
+
+Newton's method works well in multiple dimensions as well. Instead of dividing by $f'(x_n)$, we divide by the Jacobian determinant of $f$ evaluated at $x_n$.
+
+However, there are several counter-examples where Newton's method will not converge.
+\subsection{Linear Algebra}
+\subsubsection{NumPy}
+NumPy is a Python library for efficient, vectorized numerical computations. Whereas Python is interpreted (and therefore slow), the backend of NumPy is written in C (which is compiled and fast). When doing numerics, one should almost always prefer built-in functions in Python libraries, rather than loops. This has massive advantages in both speed and memory.
+
+Variables in Python have an associated header, with a reference header and a pointer to the type. So, primitive floats in Python take up 24 bytes of memory, more than the naively expected 8 bytes. Lists in Python are also weird to understand in terms of memory structure / footprint.
+
+I was hoping to have some low-level discussion on how things are implemented in Python and/or NumPy, but it was not given.
+\subsection{Integration}
+Suppose we want to compute a single-variable proper definite integral,
+\[I=\int_a^bf(x)\dd{x}.\]
+Many other integration problems can be reduced to this simple case. For instance, an improper integral over $\RR$ can be changed to a finite integral by performing a compactification (change of variables), such as
+\[x=\frac y{1-y^2}.\]
+One must be careful about the endpoints $y=\pm1$ to avoid division-by-zero. In some cases, we can shrink the bounds of integration to
+\[y\in[-1+\eps,1-\eps],\]
+and account for the endpoint effects separately (for instance, by integrating the asymptotic behavior from the power series). Multidimensional integrals can be integrated along 1-dimensional slices, in principle.
+\subsubsection{Riemann Sum}
+The most naive approach we can take to integration is to implement a Riemann sum (or trapezoid rule, Simpson's rule, etc.). Essentially, this is choosing a discretization of the domain of integration, evaluating the function along the discrete lattice, and summing appropriately.
+
+Additional refinements to the Riemann sum can be found by evaluating Taylor expansions in each discrete step. The error for each step in the Riemann sum is
+\begin{align*}
+    \eps_k&=f(x_k)h-\int_{x_k^{x_{k+1}}}\dd{x}f(x)\\
+    &=-\frac12f'(x_k)h^2+\order{h^3}.
+\end{align*}
+So, the overall error is bounded by
+\begin{align*}
+    \abs{\eps}&=\abs{I_n-I}\\
+    &\approx\abs{\sum_{k=0}^{n-1}-\frac12f'(x_k)h^2}\\
+    &\leq\sum_{k=0}^{n-1}\abs{\frac12f'(x_k)h^2}\\
+    &\leq\frac n2h^2\max{\abs{f'}}\\
+    &=\frac{(b-a)^2}{2n}\max{\abs{f'}}\\
+    &=\order{\frac 1n}.
+\end{align*}
+Although the error decreases with $n$, this scaling isn't great. We can do better. The Riemann sum uses data from one point. The trapezoid rule uses data from two neighboring points to fit a linear interpolation. The trapezoid rule has error scaling as $\order{\frac 1{n^2}}$. This is kind of remarkable, since the trapezoid rule only differs from the Riemann sum by a boundary term.
+\subsubsection{Simpsons' Rule}
+Simpson's rule uses data from three neighboring points to fit a quadratic interpolation. It gives another order of error improvement over the trapezoid rule, to $\order{\frac 1{n^3}}$.
+
+Suppose that we have equally spaced points $x_0<x_1<x_2$ with spacing $h$. We would like to interpolate this around $x_1$ as
+\[p(x)=c_0+c_1(x-x_1)+\frac12c_2(x-x_1)^2.\]
+Then the interpolation problem is simply a linear system,
+\begin{align*}
+    f_0&=c_0-hc_1+\frac12h^2c_2,\\
+    f_1&=c_0,\\
+    f_2&=c_0+hc_1+\frac12h^2c_2.
+\end{align*}
+This solves to
+\begin{align*}
+    c_0&=f_1,\\
+    c_1&=\frac{f_2-f_0}{2h},\\
+    c_2&=\frac{f_2-2f_1+f_0}{h^2}.
+\end{align*}
+What have we done? We've taken a Taylor series around $x_1$, with each coefficient $c_k$ being a $k^{\text{th}}$-order derivative evaluated at $x_1$. Then the approximation in the interval reads
+\[p(x)=f_1+\frac{f_2-f_0}{2h}(x-x_1)+\frac12\frac{f_2-2f_1+f_0}{h^2}(x-x_1)^2.\]
+Integrating,
+\[\int_{x_0}^{x_2}\dd{x}p(x)=2hf_1+\frac13h(f_2-2f_1+f_0)=\frac h3\qty(f_0+4f_1+f_2).\]
+We can chain together these intervals to get a pattern
+\[\frac h3\qty[1,4,2,4,2,\dotsc2,4,2,4,1].\]
+Taking an inner product of this with the function value at each point gives the approximation to the integral by Simpsons' rule.
+\subsection{Differential Equations}
+\subsubsection{ODEs}
+In this section, we study the prototype problem
+\[\dv{\vb x}{t}=\vb f(t,\vb x).\]
+We can use a procedure called \textbf{reduction of order} to turn higher-order problems into this first-order problem.
+\begin{example}[Harmonic oscillator]
+    Consider the driven harmonic oscillator
+    \[\ddot{x}+2\zeta\dot{x}+\omega^2x=f(t).\]
+    Defining $y=x$ and $z=\dot x$, we can turn this into a coupled first-order problem, as
+    \[\dv{t}\mqty(y\\z)=\mqty(z\\-2\zeta z-\omega^2y+f(t)).\]
+\end{example}
+The idea is that $\vb f$ gives a flow, whose integral curves are solutions to the ODE. We need to find a clever numerical scheme to find these integral curves, limited by the fact that our algorithm must be discrete.
+\subsubsection{Euler Method}
+The first thing we may try is as follows. Discretize time as
+\[t^n=nh,\]
+for step size $h$. Define
+\[x^n=x(t^n)=x(nh).\]
+For a starting point $x^0$, the forward Euler method is the first-order explicit update rule
+\[x^{n+1}=x^n+hf(t,x^n),\]
+which comes from approximating the derivative
+\[\dv{x}{t}\approx\frac{x^{n+1}-x^n}{h}=f(t,x^n).\]
+We can do a quick estimate for the error of this scheme. Define
+\[x_{\text{true}}(t+h)=x_{\text{true}}(t)+h\dot x_{\text{true}}(t)+\order{h^2}.\]
+Therefore, the error of this scheme is $\order{h^2}$. After $N$ steps, the accumulated error is of order
+\[\order{Nh^2}\sim\order{h}\sim\order{N^{-1}}.\]
+\subsubsection{Runge-Kutta Methods}
+The idea is to improve the Euler method by increasing the order of the approximation. These families are known as the \textbf{Runge-Kutta (RK) methods}. For RK2 (\textbf{midpoint rule}), we approximate the slope of the function by the midpoint, by the following update rule:
+\begin{align*}
+    x_1&=x^n+\frac h2f(t^n,x^n),\\
+    t_1&=t^n+\frac h2,\\
+    x^{n+1}&=x^n+hf(t_1,x_1).
+\end{align*}
+Let's estimate the error of the midpoint rule:
+\begin{align*}
+    x^{n+1}&=x^n+hf(t_1,x_1)\\
+    &=x^n+hf\qty(t^n+\frac h2,x^n+\frac h2f(t^n,x^n))\\
+    &=x^n+h\eval(f+\frac h2\partial_tf+\frac h2f\partial_xf|_{(t^n,x^n)}\\
+    &=x^n+hf(t^n,x^n)+\frac{h^2}{2}\eval(\partial_tf+f\partial_xf|_{(t^n,x^n)}.
+\end{align*}
+Note that
+\[\ddot{x}(t)=\partial_tf(t,x(t))=\partial_tf+f\partial_xf,\]
+which exactly matches the second-order term of the expression. This shows that the error is $\order{h^3}$, which is one order better than the forward Euler method. This means that the overall error for the entire solver is $\order{h^2}$.
+
+In practice, the most popular method used is RK4. Define the following helper variables:
+\begin{center}
+    \begin{tabular}{ccc}
+        $K_1=f(t^n,x^n)$ & $t_1=t^n+\frac h2$ & $x_1=x^n+\frac h2K_1$ \\
+        $K_2=f(t_1,x_1)$ & $t_2=t^n+\frac h2$ & $x_2=x^n+\frac h2K_2$ \\
+        $K_3=f(t_2,x_2)$ & $t_3=t^n+h$ & $x_3=x^n+hK_3$ \\
+        $K_4=f(t_3,x_3)$&&
+    \end{tabular}
+\end{center}
+The update rule is
+\[\boxed{x^{n+1}=x^n+\frac h6\qty(K_1+2K_2+2K_3+K_4)}.\]
+This is a fourth-order scheme. The error of each step is $\order{h^5}$. RK4 is the last scheme in the Runge-Kutta family where the $n^{\text{th}}$-order scheme uses only $n$ function evaluations. So, it's a nice balance between accuracy and computational expense.
+\subsubsection{Adaptive Methods}
+The RK4 scheme is not perfect. There are classes of problems that RK4 struggles with. For instance, very eccentric orbits pose a problem, since the orbit requires a very fine time resolution for a very small part of the orbit (around periapsis). This motivates us to use adaptive methods, to choose our time steps more efficiently.
+
+More specifically, we want our algorithm to stay just under some tolerance bound that we specify for the error. Define the step
+\[L(t,x(t),h)=x(t+h)-x(t)+ch^{p+1}+\order{h^{p+2}}.\]
+For example, the error term could look something like
+\[\frac1{12}\ddot x(t)h^3.\]
+For RK4, the update step looks like
+\[x^{n+1}=x^n+L_4(t^n,x^n,h).\]
+At step $n$, a step size $h$ takes us to
+\[x_h=x^n+L_p(t^n,x^n,h)=x(t+h)+ch^{p+1}+\dotsb.\]
+If we halve the step size, then we have to step twice to cover the same interval. Then,
+\[x_{\flatfrac h2}=x^n+L_p\qty(t^n,x^n,\frac h2)+L\qty(t^{n+\flatfrac12},x^{n+\flatfrac12},\frac h2)=x(t+h)+(c+c')\qty(\frac h2)^{p+1}+\dotsb.\]
+Since $c$ locally on $x(t)$ and its derivatives at the start of the timestep, we can compare $c'$ to $c$. In particular, this means that the difference between $c'$ and $c$ scales as $h$, contributing to higher-order errors. Hence,
+\[x_{\flatfrac h2}=x(t+h)+\frac1{2^p}ch^{p+1}.\]
+For the following analysis, we assume $h$ is sufficiently small. In particular, if we define
+\[\Delta x\coloneq x_h-x_{\flatfrac h2}=(1-2^{-p})ch^{p+1}.\]
+We can rearrange this to find the error in the coarse scheme to be
+\[ch^{p+1}=\frac{2^p}{2^p-1}\Delta x,\]
+and the error in the fine scheme to be
+\[2^{-p}ch^{p+1}=\frac1{2^p-1}\Delta x.\]
+We can use this to refine our update rule,
+\[\boxed{x^{n+1}=x_{\flatfrac h2}-\frac{\Delta x}{2^p-1}}.\]
+This technique is called \textbf{Richardson extrapolation}. Our error has now been refined to order $\order{h^{p+2}}$. Now, given
+\[\eps^n=\frac{\Delta x}{2^p-1},\]
+and given a desired tolerance $\eps_{\text{target}}$, we can determine the step size $h_{\text{target}}$. Using the scaling of error $\order{h^{p+1}}$, we can write
+\[\frac{\eps_{\text{target}}}{\eps^n}=\qty(\frac{h_{\text{target}}}{h^n})^{p+1}.\]
+Therefore, the step size we should use is
+\[h_{\text{target}}\lesssim h^n\qty(\frac{\eps_{\text{target}}}{\eps})^{\frac1{p+1}}.\]
+\begin{algorithm}[Richardson extrapolation]
+    We are given a starting time $t^n$, starting position $x^n$, timestep $h^n$, target tolerance $\eps_{\text{target}}$, and fudge factor $c\lesssim1$. Then, we compute:
+    \begin{enumerate}
+        \item Define $x_{h^n}$ by stepping once with step size $h^n$.
+        \item Define $x_{\flatfrac{h^n}2}$ by stepping twice with step size $\frac{h^n}2$.
+        \item Define
+        \[\eps^n=\frac{x_{h^n}-x_{\flatfrac{h^n}2}}{2^p-1}.\]
+        \item If $\eps^n>\eps_{\text{target}}$:
+        \begin{enumerate}
+            \item Compute the target step size,
+            \[h_{\text{target}}=ch^n\qty(\frac{\eps_{\text{target}}}{\eps^n})^{p+1}.\]
+            \item If viable, repeat the algorithm with new value of $h^n$ updated to $h_{\text{target}}$. Otherwise, continue.
+        \end{enumerate}
+        \item Update step:
+        \begin{enumerate}
+            \item Set $x^{n+1}=x_{\flatfrac{h^n}2}-\eps^n$.
+            \item Set $h^{n+1}=h_{\text{target}}$.
+        \end{enumerate}
+    \end{enumerate}
+\end{algorithm}
+\subsection{Partial Differential Equations}
+Broadly, we classify PDEs into three types:
+\begin{itemize}
+    \item \textbf{Hyperbolic.} The prototypical hyperbolic PDE is the wave equation,
+    \[u_{tt}-c^2u_{xx}=0.\]
+    The wave equation is most compatible with initial-value conditions.
+    \item \textbf{Parabolic.} The prototypical parabolic PDE is the diffusion (heat) equation,
+    \[u_t-Du_{xx}=0.\]
+    \item \textbf{Elliptic.} The prototypical elliptic PDE is Laplace's equation,
+    \[u_{xx}+u_{yy}=0.\]
+    This can be viewed as the equilibrium for the heat equation. Laplace's equation is most compatible with boundary-value conditions.
+\end{itemize}
+A general second-order homogeneous linear PDE on two variables can be written as
+\[Au_{xx}+Bu_{xy}+Cu_{yy}+Du_x+Eu_y+Fu=0.\]
+It turns out that there exists a linear change of variables
+\[(x,y)\mapsto\qty(\xi(x,y),\nu(x,y)),\]
+such that the equation reduces to a hyperbolic, parabolic, or elliptic PDE, depending on the sign of the \textbf{discriminant} $B^2-4AC$ (negative for ellipse, zero for parabola, positive for hyperbola).
+
+Consider the wave equation for $u(x,t)$ in a box $[x_0,x_1]\times[t_0,t_1]$. We need to consider the boundaries carefully:
+\begin{itemize}
+    \item We need some initial data / boundary conditions. For instance, we could specify $u(t_0,x)$ and $u_t(t_0,x)$.
+    \item We need to specify some information on the endpoints. For instance, we could specify fixed endpoints on $u(t,x_0)$ and $u(t,x_1)$.
+    \item It would be tricky to specify both initial and future boundary conditions, because they might be incompatible.
+\end{itemize}
+Consider the heat equation for $u(x,t)$ in a box $[x_0,x_1]\times[t_0,t_1]$. The boundary data needed is:
+\begin{itemize}
+    \item We could specify an initial temperature configuration, $u(t_0,x)$.
+    \item We need to specify behavior at the endpoints, $u(t,x_0)$ and $u(t,x_1)$.
+\end{itemize}
+Consider Laplace's equation for $u(x,y)$ in a box $[x_0,x_1]\times[y_0,y_1]$. The boundary data needed is:
+\begin{itemize}
+    \item We could specify the value of $u$ on the entire boundary (Dirichlet). We could also specify the value of $\grad u$ on the entire boundary (von Neumann), and an offset.
+    \item We could try to specify $u$ and $\grad u$ on some partial boundaries, but this kind of boundary condition is very sensitive to initial conditions. Because of this chaotic behavior, we say that this kind of boundary condition is \textbf{ill-posed}.
+\end{itemize}
+Now, we consider the effects of perturbations on these PDEs:
+\begin{itemize}
+    \item \textbf{Wave equation.} The domain of influence is the forward light cone, and the domain of dependence is the backward light cone.
+    \item \textbf{Heat equation.} The domain of influence is the upper-half plane, and the domain of dependence is the lower-half plane.
+    \item \textbf{Laplace's equation.} The domains of influence and dependence are both the entire domain.
+\end{itemize}
+
+
+\subsection{Monte Carlo}
+\textbf{Monte Carlo} is a term for a set of computational approaches that uses repeated random simulations. It is used to do numerical integration, optimization, and sampling from probability distributions, among other things. Historically, it was first developed at Los Alamos for the Manhattan Project, for simulation of the diffusion of neutrons in fissionable material.
+
+The problem of quantum Monte Carlo is plagued by the curse of dimensionality.
+
+One example of Monte Carlo techniques applied to molecules is the variational method for estimating the ground state.
+\subsubsection{Markov Chain Monte Carlo}
+The idea of Markov chain Monte Carlo (MCMC) is to endow random samples with specified \textit{dynamics}. We start with with probabilities for a likelihood function / generative model,
+\[p(\text{data}\mid\text{physics}).\]
+We can then estimate posterior probability with
+\[p(\text{physics}\mid\text{data})\propto p(\text{physics})p(\text{data}\mid\text{physics}).\]
+We can ignore $p(\text{data})$ since it's just a normalizing constant, independent of our models.
+
+We can use Bayes' theorem to convert data likelihoods into constraints on the model parameters.
+
+One type of question we ask in astrophysics can often have a generative model of a phenomenon of interest. In particular, we have the ability to simulate/predict what we will observe, given a model $f$ with some tested parameters $\theta$ and fixed parameters $x_i$. The model prediction is conventionally notated
+\[\hat y_i=f(\theta,x_i).\]
+We would like to use these simulations to put constraints on the parameters to see which regions of parameter space are consistent with our observations. In particular, we can compute a \textbf{likelihood} for our observations, given our model,
+\[\mathcal L(y_i\mid x_i,\theta)=g(y_i,x_i,\theta).\]
+For example, the most commonly used assumption is Gaussian likelihoods, where $\mathcal L(y_i\mid x_i,\theta)$ is a Gaussian centered at $\hat y_i=f(\theta,x_i)$, with variance $\sigma_i^2$. Note that $y_i$, $x_i$, $\sigma_i$, and the functional forms of $f$ and $g$ are fixed. We can tweak $\theta$ and observe how the likelihood changes, to put constraints on such parameters. Using Bayes' theorem (and, I think, making the assumption that $p(x_i\mid y_i)\mathcal L(y_i\mid x_i,\theta)=1$), we can show that
+\[p(\theta\mid y_i,x_i)=\frac{\mathcal L(y_i\mid x_i,\theta)p(\theta)}{p(y_i)}.\]
+Usually, we don't care about the \textbf{evidence term}, $p(y_i)$. Often, we want the \textbf{prior term}, $p(\theta)$, to be ``uninformative,'' although this is difficult to make precise. The upshot is that, under these assumptions, we want to draw samples from the \textbf{posterior distribution},
+\[p(\theta\mid y_i,x_i),\]
+which is easy to do (with a likelihood scheme) since it is proportional to $\mathcal L(y_i\mid x_i,\theta)$. We report the posterior distribution (over the free parameters) as our inference, or scientific result.
+
+One algorithm for sampling from a known distribution $p$ is the \textbf{Metropolis-Hastings} algorithm, which is a popular algorithm within the MCMC family. This is because the update rule is given as
+\[\vb{x'}\sim q(\vb{x'};\vb x),\]
+which can be intuitively thought of as a series of memoryless ``steps'' given only the current state. Often, a Gaussian on $\vb{x'}-\vb{x}$ is used for $q$ due to its nice symmetry properties.
+\begin{algorithm}[Metropolis-Hastings]
+    We are given a target probability distribution $p$, a proposal distribution for steps $q$, and an initial position $x_0$. Initialize an empty list, known as the chain. The update rule is as follows.
+    \begin{enumerate}
+        \item Propose a new position $\vb{x'}$ in parameter space by sampling from $q(\vb{x'};\vb{x})$.
+        \item Compute the acceptance probability,
+        \[\min\qty(1,\frac{p(\vb{x'})}{p(\vb{x})}\frac{q(\vb{x};\vb{x'})}{q(\vb{x'};\vb{x})}).\]
+        \item If accept, update the position to $\vb{x'}$. Otherwise, leave it alone at $\vb{x}$.
+        \item Append the position of the point to the chain.
+    \end{enumerate}
+    At the end, return the entire chain.
+\end{algorithm}
+One useful diagnostic for Metropolis-Hastings is the proportion of total steps that resulted in an accepted proposal. The algorithm needs to find a good trade-off between step size and acceptance ratio, in order to achieve desirable convergence.
+
+In practice, since the output of $p$ is often very small, it can be numerically more stable to work with $\log{p}$ instead of $p$, and adjust the algorithm accordingly.
+
+Since the initial point is usually chosen arbitrarily, the algorithm often starts with a \textbf{burn-in} step, in which the first $N$ samples aren't saved.
+
+Also, MCMC naturally produces \textit{correlated} (nearby) samples. To keep track of this, we can measure the \textbf{autocorrelation time} $\tau$ by keeping track of $\flatfrac1\tau$ of the MCMC samples (for instance, using acor). We could use $\tau$ to help set a scale for the number of steps to take, but in general, deciding when to stop the sampling is not straightforward.
+
+There is a popular Python library for MCMC known as emcee, which was co-created by Dustin Lang in 2012. It is an affine-invariant sampler. Recall that MCMC draws samples from a probability distribution when you can numerically evaluate the probability function, up to a constant. In a Bayesian context, we try to run MCMC on the posterior probability,
+\[\text{posterior}(\text{params}\mid\text{data})\propto\text{prior}(\text{params})\times\text{likelihood}(\text{data}\mid\text{params}).\]
+One big challenge of the Metropolis-Hastings algorithm is in choosing the proposal distribution to get the algorithm to work efficiently.
+
+The idea of \textbf{ensemble samplers} is to run an ensemble of Metropolis-Hastings ``walkers'' in parallel. At each point, to update a point, we first choose a different helper point, then move along the line connecting those points according to some appropriate probability distribution. This avoids the oversampling tendencies of the single-walker Metropolis-Hastings algorithm, and leads to far quicker convergence.
+
+\newpage
+\appendix
+\section{Appendix}
+
+% \newpage
+% \printbibliography[heading=bibintoc]
+
+\end{document}
