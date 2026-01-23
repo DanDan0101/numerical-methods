@@ -358,7 +358,11 @@ There is a popular Python library for MCMC known as emcee, which was co-created 
 \[\text{posterior}(\text{params}\mid\text{data})\propto\text{prior}(\text{params})\times\text{likelihood}(\text{data}\mid\text{params}).\]
 One big challenge of the Metropolis-Hastings algorithm is in choosing the proposal distribution to get the algorithm to work efficiently.
 
-The idea of \textbf{ensemble samplers} is to run an ensemble of Metropolis-Hastings ``walkers'' in parallel. At each point, to update a point, we first choose a different helper point, then move along the line connecting those points according to some appropriate probability distribution. This avoids the oversampling tendencies of the single-walker Metropolis-Hastings algorithm, and leads to far quicker convergence.
+The idea of \textbf{ensemble samplers} is to run an ensemble of Metropolis-Hastings ``walkers'' in parallel. At each point, to update a point, we first choose a different helper point, then move along the line connecting those points according to some appropriate probability distribution. This avoids the oversampling tendencies of the single-walker Metropolis-Hastings algorithm, and leads to far quicker convergence. This update scheme is known as the ``stretch'' move.
+
+The emcee library allows the choice of different move types (i.e. different proposal functions). For instance, the differential evolution (DE) move can improve the sampling for multimodal densities, which pose the problem about being stuck in some local region.
+
+Since the emcee algorithms enjoy greater success for a large class of probability functions, it has more \textbf{affine invariance} compared to the traditional M-H algorithm, which requires tuning parameters to be chosen for each specific probability function. Additionally, emcee is much easier and faster, since it is parallelizable.
 
 \newpage
 \appendix
