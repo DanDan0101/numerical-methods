@@ -7,5 +7,6 @@ PSI Numerical Methods, offered in Winter 2026. Course notes are on [Overleaf](ht
 * `numpy`
 * `scipy`
 * `matplotlib`
+* `ipympl`
 * `numba`
 * `tqdm`
