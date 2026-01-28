@@ -363,6 +363,41 @@ The idea of \textbf{ensemble samplers} is to run an ensemble of Metropolis-Hasti
 The emcee library allows the choice of different move types (i.e. different proposal functions). For instance, the differential evolution (DE) move can improve the sampling for multimodal densities, which pose the problem about being stuck in some local region.
 
 Since the emcee algorithms enjoy greater success for a large class of probability functions, it has more \textbf{affine invariance} compared to the traditional M-H algorithm, which requires tuning parameters to be chosen for each specific probability function. Additionally, emcee is much easier and faster, since it is parallelizable.
+\subsection{FFT}
+The \textbf{fast Fourier transform} is one of the most important algorithms of all time.
+\begin{definition}[Discrete Fourier transform]
+    The one-dimensional \textbf{discrete Fourier transform (DFT)} is defined as
+    \[X_k=\sum_{m=0}^{n-1}x_m\exp(-2\pi ik\frac mn).\]
+    It takes $n$ uniformly sampled, complex-valued inputs $x_m$ to $n$ uniformly spaced, complex-valued outputs $X_k$.
+\end{definition}
+We can write the DFT definition using an $n\times n$ complex-valued matrix $F$ with elements $F_{k,m}=\exp(-2\pi ik\flatfrac mn)$. Then, the DFT equation reads
+\[X=Fx.\]
+In particular, this is a symmetric matrix. One intuitive way to interpret the entries of the matrix is that row $k$ describes $n$ uniformly spaced samples from $k$ full oscillations of a sinusoid.
+
+The FFT is used ubiquitously. Here are a few samples of FFT use cases:
+\begin{itemize}
+    \item Radio astronomy with CHIME and CHORD. Data preprocessing (filtering out RF interference) is done at the hardware level via an FPGA.
+    \item It allows us to long-range interferometry, by applying different phases between two spatially-separated telescopes to adjust viewing angle.
+    \item The STFT allows us to draw spectrograms, which allows us to study objects like fast radio bursts.
+    \item Fourier transforms allow us to very efficiently compute convolutions, via the convolution theorem.
+    \item DESI cosmology stuff for large-scale galaxy structure. In particular, working in Fourier space allows us to study baryon acoustic oscillations (BAOs).
+\end{itemize}
+The convolution theorem states that convolution becomes multiplication under the Fourier transform, and vice versa.
+\begin{definition}[Discrete convolution]
+    The convolution of a signal $x_i$ of size $N$, with a kernel $h_k$ of size $K$, is a result $y_i$ of size $N-K$,
+    \[y_i=\sum_{k=0}^{K-1}x_{i-k}h_k.\]
+\end{definition}
+\begin{theorem}[Discrete convolution theorem]
+    \[Y=X\cdot H\]
+\end{theorem}
+\begin{definition}[Nyquist frequency]
+    The \textbf{Nyquist frequency} is half of the sample rate, and it characterizes the highest frequency the Fourier transform can be defined up to, due to effects from aliasing.
+\end{definition}
+The interpretation of the Fourier transform as a matrix equation with square matrix $F$ lends itself nicely to an interpretation as a change of basis. The Fourier basis is an orthonormal basis. Another notable basis set is the Chebyshev polynomials.
+
+The FFT (due to Cooley and Tukey) speeds up the computation from a naive $\order{n^2}$ (from the matrix multiplication point-of-view) to $\order{n\log{n}}$. The idea of FFT is divide-and-conquer (in an ``interlaced'' sort of way). In practice, the divide-and-conquer works best when the FFT is taken on a number of samples which is a product of small primes, such as a \textbf{power of $2$}.
+
+For computational efficiency of the FFT, one thing done in practice is to pad data with $0$'s (or constant) until the number of samples is a power of $2$.
 
 \newpage
 \appendix
