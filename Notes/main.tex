@@ -124,7 +124,7 @@ The most naive approach we can take to integration is to implement a Riemann sum
 
 Additional refinements to the Riemann sum can be found by evaluating Taylor expansions in each discrete step. The error for each step in the Riemann sum is
 \begin{align*}
-    \eps_k&=f(x_k)h-\int_{x_k^{x_{k+1}}}\dd{x}f(x)\\
+    \eps_k&=f(x_k)h-\int_{x_k}^{x_{k+1}}\dd{x}f(x)\\
     &=-\frac12f'(x_k)h^2+\order{h^3}.
 \end{align*}
 So, the overall error is bounded by
@@ -201,7 +201,7 @@ Let's estimate the error of the midpoint rule:
     &=x^n+hf(t^n,x^n)+\frac{h^2}{2}\eval(\partial_tf+f\partial_xf|_{(t^n,x^n)}.
 \end{align*}
 Note that
-\[\ddot{x}(t)=\partial_tf(t,x(t))=\partial_tf+f\partial_xf,\]
+\[\ddot{x}(t)=\dv{t}f(t,x(t))=\partial_tf+f\partial_xf,\]
 which exactly matches the second-order term of the expression. This shows that the error is $\order{h^3}$, which is one order better than the forward Euler method. This means that the overall error for the entire solver is $\order{h^2}$.
 
 In practice, the most popular method used is RK4. Define the following helper variables:
@@ -491,13 +491,153 @@ Another profiler is the package line\_profiler.
 Use these profilers to figure out what parts of your code is slow, before optimization!
 
 File I/O could be done more efficiently by dumping binary instead of converting to strings, and by making use of buffers to write out data.
-
-
-
-
 \newpage
 \appendix
-\section{Appendix}
+\section{Interview}
+\subsection{Numerical Algorithms and Their Error Analysis}
+\subsubsection{Root Finding}
+\begin{itemize}
+    \item \textbf{Bisection.} For 1D root-finding problems. Make two initial guesses with opposite sign. Refine guesses by bisecting the interval. Error bound goes as $\eps_n\leq 2^{-n}(b-a)$. Linear convergence.
+    \item \textbf{Newton-Raphson.} For more general root-finding problems. Make one initial guess. Refine guesses by linear approximation,
+    \[x_{n+1}=x_n-\frac{f(x_n)}{f'(x_n)}.\]
+    Find error update by Taylor expanding the update rule,
+    \[\eps_{n+1}\approx\frac12\frac{f''(x_*)}{f'(x_*)}\eps_n^2.\]
+    Quadratic convergence.
+\end{itemize}
+\subsubsection{Riemann Sums}
+Prototypical problem:
+\[I=\int_0^1\dd{x}f(x).\]
+1D definite integrals can be converted to the prototypical problem by compactification. Riemann sums can be defined from the left [or right],
+\[I_0\approx\sum_{n=0}^{N-1}hf(x_{n[+1]}).\]
+Analyze error for each step of the (left) sum by Taylor expanding
+\[\eps_k=f(x_k)h-\int_{x_k}^{x_{k+1}}\dd{x}f(x).\]
+Overall error is $\order{N^{-1}}$. Refinements use higher-order Taylor expansions (e.g. trapezoid rule, Simpson's rule), or expansions in different basis (e.g. Gaussian quadrature).
+\subsubsection{ODEs}
+Prototypical problem:
+\[\dv{\vb{x}}{t}=\vb{f}(t,\vb{x}).\]
+Typically given as an IVP. Higher-order coupled ODEs can be converted to first-order coupled ODE.
+\begin{itemize}
+    \item \textbf{Forward Euler.} Explicit update rule using first derivative,
+    \[x_{n+1}=x_n+hf(t,x_n).\]
+    Error from each step is from second derivative. Overall error is $\order{N^{-1}}$.
+    \item \textbf{RK2 (midpoint rule).} Explicit update rule approximating slope at midpoint of interval,
+    \[x_{n+1}=x_n+hf\qty(t_n+\frac h2,x_n+\frac h2f(t_n,x_n)).\]
+    To estimate error, use lemma
+    \[\dv{t}f(t,x(t))=\partial_tf+f\partial_xf.\]
+    Thus, RK2 uses up to second derivative, and has error $\order{h^3}$ for each step, $\order{h^2}$ overall.
+    \item \textbf{RK4.} Explicit update rule using weighted average (weights $[1,2,2,1]$) of following points:
+    \begin{itemize}
+        \item Starting point.
+        \item Step to midpoint.
+        \item Restep to midpoint.
+        \item Step to end.
+    \end{itemize}
+    RK4 has error $\order{h^5}$ for each step, $\order{h^4}$ overall.
+\end{itemize}
+\subsubsection{Richardson Extrapolation}
+Compute two updates, $x_{h_n}$ by stepping with step size $h_n$, and $x_{\flatfrac{h_n}2}$ by stepping twice with step size $\flatfrac{h_n}2$. Let the order of the update rule be $p$. Then,
+\begin{align*}
+    \eps_{h_n}&=ch^{p+1}+\dotsb,\\
+    \eps_{\flatfrac{h_n}2}&\approx2^{-p}ch^{p+1}+\dotsb.
+\end{align*}
+This rearranges to
+\begin{align*}
+    \eps_{h_n}&\approx\frac{2^p}{2^p-1}(\eps_{h_n}-\eps_{\flatfrac{h_n}2}),\\
+    \eps_{\flatfrac{h_n}2}&\approx\frac{1}{2^p-1}(\eps_{h_n}-\eps_{\flatfrac{h_n}2})\coloneq\eps_n.
+\end{align*}
+While $\eps_n>\eps_{\mathrm{tol}}$, estimate a new step size,
+\[h^*_n\lesssim h_n\qty(\frac{\eps_{\mathrm{tol}}}{\eps_n})^{\frac{1}{p+1}}.\]
+To update, set
+\[x_{n+1}=x_{\flatfrac{h_n}2}-\eps_n,\]
+and set
+\[h_{n+1}=h^*_n.\]
+\subsection{Monte Carlo}
+\subsubsection{Bayesian Inference}
+MC lets us gather samples/statistics from simulations. Examples of uses:
+\begin{itemize}
+    \item Particle physics simulations. Geant4, etc.
+    \item Statistical physics.
+    \item Astronomy.
+\end{itemize}
+Suppose we have parameters $\theta$ for our model, and we want to predict observations $\hat y_i$ given dependent variables $\hat x_i$. Then,
+\[\hat y_i=f(\theta,\hat x_i).\]
+Bayesian calculates the posterior as
+\[p(\theta\mid\hat y_i,\hat x_i)=\mathcal L(\hat y_i\mid\hat x_i,\theta)\frac{p(\theta)}{p(\hat y_i)}.\]
+We don't care about the evidence term $p(y_i)$, and we want an ``uninformative'' prior $p(\theta)$. Then we can sample the posterior, which is proportional to the likelihood,
+\[p(\theta\mid\hat y_i,\hat x_i)\propto\mathcal L(\hat y_i\mid\hat x_i,\theta).\]
+The fit can be done with MLE.
+\subsubsection{Metropolis-Hastings}
+Metropolis-Hastings is the simplest MCMC algorithm for sampling from a known distribution $p$. Set an initial configuration for the ``walker''. To update, sample a jump from a proposal distribution, $\vb{x'}\sim q(\vb{x'};\vb{x})$. Accept this proposal with probability
+\[\min(1,\frac{p(\vb{x'})}{p(\vb{x})}\frac{q(\vb{x};\vb{x'})}{q(\vb{x'};\vb{x})}),\]
+otherwise, don't jump. The history of walker positions converges in probability to the target distribution $p$.
+
+To determine the number of steps to take, one can make plots of the trajectory through parameter space, comparing against the known distribution $p$. One estimate is the autocorrelation time $\tau$ (e.g. using acor).
+
+Taking staggered steps through a high-dimensional parameter space is known as Gibbs sampling. It avoids the challenge of choosing a good multivariate joint probability distribution (unless the parameters are highly correlated, in which case the original problem returns), at the cost of possibly needing more steps.
+\subsubsection{emcee}
+The Python library emcee is an affine-invariant sampler for MCMC. It is an ensemble sampler, which runs an ensemble of Metropolis-Hastings ``walkers'' in parallel. The ``stretch'' update rule for each walker chooses a helper point, then draws a sample from the line connecting the walker and the helper point (in the affine space). The ``differential evolution'' update rule improves the sampling for multimodal densities. Emcee has several advantages:
+\begin{itemize}
+    \item Ensemble samplers have faster convergence.
+    \item No need to tune parameters carefully for proposal distribution (affine invariance).
+    \item Update rules avoid oversampling, work with multimodal densities, etc.
+    \item Parallelizable, faster, easy to use.
+\end{itemize}
+\subsection{Fourier Transform}
+\subsubsection{FFT}
+The 1D DFT on $N$ points
+\[X_k=\sum_{m=0}^{N-1}x_m\exp(-2\pi ik\frac mN).\]
+Define a square matrix $F$, with entries
+\[F_{k,m}=\exp(-2\pi ik\frac mN).\]
+Then, the DFT can be written
+\[X=Fx,\]
+which has computational complexity $\order{N^2}$. In comparison, the FFT (Cooley-Tukey) is a divide-and-conquer algorithm. Suppose $N$ is a power of $2$. We use interlacing. Let $0\leq k<\frac N2$. Define $k'=k+\frac N2$. Then, it can be shown that
+\[F_{k',m}=(-1)^mF_{k,m}.\]
+Letting $E_k$ (resp. $O_k$) be the Fourier transform of size $\frac N2$ on the even (resp. odd) elements of $x$, the FFT then has
+\begin{align*}
+    X_k&=E_k+e^{-2\pi i\flatfrac kN}O_k,\\
+    X_{k+\flatfrac N2}&=E_k-e^{-2\pi i\flatfrac kN}O_k.
+\end{align*}
+This algorithm has cost $\order{N\log{N}}$.
+\subsubsection{Convolution Theorem}
+The discrete convolution of two signals is
+\[(x*k)_n=\sum_{m=-\infty}^\infty x_mk_{n-m},\]
+with endpoint behavior dependent on the padding scheme. Naively, the computational cost is $\order{NK}$.
+
+The convolution theorem gives a fast way to do circular convolution via the FFT,
+\[(x_N*k)_n=\mathcal F^{-1}\qty{\mathcal F\qty{x}\cdot\mathcal F\qty{k}}.\]
+Supposing $\log_2{N}>K$, the computational cost is then $\order{N\log{N}}$.
+\subsection{Everything Else}
+\subsubsection{Python Operations}
+\begin{itemize}
+    \item \textbf{Running time of a program.} Tqdm gives some general idea of the running time of loops. Small code snippets can be benchmarked with timeit. The whole program can be profiled with cProfile (built-in), and visualized with flameprof. Another profiler is line\_profiler.
+    \item \textbf{Memory usage of a program.} Memory usage can be profiled with tracemalloc (built-in).
+    \item \textbf{Array file I/O.} Use np.save or np.savetxt to write data. Use np.load or np.loadtxt to load data.
+    \item \textbf{Checking documentation.} Check the online documentation. Alternatively, use the help() function. Another possibility is to look at the source code.
+    \item \textbf{Checking data type.} Generically, use the type() function. For np.ndarray objects, use the dtype property.
+\end{itemize}
+\subsubsection{Reduction of Order}
+A second-order ODE on configuration space can be turned into a first-order ODE on the tangent bundle.
+\subsubsection{PDEs}
+\begin{center}
+    \begin{tabular}{c||c|c|c}
+        Property & Elliptic & Parabolic & Hyperbolic \\
+        \hline
+        Prototypical problem & Laplace's equation & Heat (diffusion) equation & Wave equation \\
+        Prototypical equation & $u_{xx}+u_{yy}=0$ & $u_t-Du_{xx}=0$ & $u_{tt}-c^2u_{xx}=0$ \\
+        Domain of dependence & All & Past & Past light cone \\
+        Domain of influence & All & Future & Future light cone \\
+        Boundary conditions & Whole boundary & Initial state and endpoints & Initial data and endpoints
+    \end{tabular}
+\end{center}
+Some notes:
+\begin{itemize}
+    \item The advection equation reads
+    \[\pdv{\psi}{t}+\div(\psi\vb{u})=0.\]
+    It expresses continuity. It is a first-order hyperbolic PDE.
+    \item A general second-order homogeneous linear PDE on two variables reads
+    \[Au_{xx}+Bu_{xy}+Cu_{yy}+Du_x+Eu_y+Fu=0.\]
+    Interpreted as a conic, the sign of the discriminant $B^2-4AC$ is preserved under linear changes of variables, and determines the type of the PDE.
+\end{itemize}
 
 % \newpage
 % \printbibliography[heading=bibintoc]
