@@ -270,7 +270,7 @@ Broadly, we classify PDEs into three types:
 \begin{itemize}
     \item \textbf{Hyperbolic.} The prototypical hyperbolic PDE is the wave equation,
     \[u_{tt}-c^2u_{xx}=0.\]
-    The wave equation is most compatible with initial-value conditions.
+    The wave equation is most compatible with initial-value conditions. Also, see the advection equation.
     \item \textbf{Parabolic.} The prototypical parabolic PDE is the diffusion (heat) equation,
     \[u_t-Du_{xx}=0.\]
     \item \textbf{Elliptic.} The prototypical elliptic PDE is Laplace's equation,
@@ -398,6 +398,102 @@ The interpretation of the Fourier transform as a matrix equation with square mat
 The FFT (due to Cooley and Tukey) speeds up the computation from a naive $\order{n^2}$ (from the matrix multiplication point-of-view) to $\order{n\log{n}}$. The idea of FFT is divide-and-conquer (in an ``interlaced'' sort of way). In practice, the divide-and-conquer works best when the FFT is taken on a number of samples which is a product of small primes, such as a \textbf{power of $2$}.
 
 For computational efficiency of the FFT, one thing done in practice is to pad data with $0$'s (or constant) until the number of samples is a power of $2$.
+
+To see the interlacing in effect, the insight is as follows. Consider again the matrix equation
+\[X_k=F_{km}x_m,\]
+with
+\[F_{km}=e^{-2\pi ikm/N}.\]
+Now, suppose $k$ is in the first half of the range, i.e. $0\leq k<\frac N2$. Let $k'=k+\frac N2$. Then
+\[F_{km}=e^{-2\pi ikm/N},\]
+and it's not difficult to show that
+\[F_{k'm}=e^{-\pi im}F_{km}=(-1)^mF_{km}.\]
+The realization that allows us to do a divide-and-conquer algorithm is now that the terms with even $m$ are precisely the terms of a Fourier transform of length $\frac N2$. The terms with odd $m$ are similarly the terms of a Fourier transform of length $\frac N2$, but with signs introduced on for $F_{k'm}$, and up to a factor $e^{-2\pi ik/N}$.
+
+In summary, for $0\leq k<\frac N2$, we can compute the Fourier transform by a divide-and-conquer recursion,
+\begin{align*}
+    X_k&=E_k+e^{-2\pi ik/N}O_k,\\
+    X_{k+\frac N2}&=E_k-e^{-2\pi ik/N}O_k,
+\end{align*}
+where $E_k$ and $O_k$ are the Fourier transforms of size $\frac N2$, on the even and odd elements, respectively. Of course, once $N=1$, the Fourier transform is just trivial.
+\subsection{Hydrodynamics}
+Hydrodynamics is ubiquitous in physics. The basic equations of hydrodynamics are the \textbf{Euler equations}:
+\begin{align*}
+    \partial_t\rho+\div{\rho\vb{v}}&=0,\\
+    \partial_t\rho\vb{v}+\div(\rho\vb{v}\otimes\vb{v}+\mathsf{I}P)&=\rho\vb g,\\
+    \partial_t\qty(\frac12\rho v^2+\rho\eps)+\vb v\vdot\qty(\qty(\frac12\rho v^2+\rho\eps+P)\vb{v})&=\rho\vb v\vdot\vb g.
+\end{align*}
+The first equation is continuity. The second equation expresses conservation of momentum. The third equation expresses conservation of energy ($\eps$ is the specific internal energy). These should be supplemented with some equation of state, $P(\rho,\eps)$, for instance. We can make these equations more fancy by adding in effects of chemical reactions, self-interactions, thermal radiation, etc. For now, we consider the simple case of an ideal fluid with no external sources.
+
+These equations all take the form
+\[\boxed{\partial_tu+\div{\vb{f}(u)}=0},\]
+for some flux $\vb{f}$. These are all local conservation equations. We can define macroscopic quantities,
+\[U_V=\int_Vu\dd{V}.\]
+These are conserved (up to a boundary term),
+\begin{align*}
+    \dv{t}U_V&=\int_V\partial_tu\dd{V}\\
+    &=-\int_V\div{\vb f}\dd{V}\\
+    &=-\oint_{\partial V}\vb f\vdot\dd{\vb{A}}.
+\end{align*}
+We now want a numerical scheme to solve (systems of) local conservation equations. We'll write this as
+\[\partial_tu_i+\div{\vb{f_i}(\qty{u_j})}=0.\]
+We can rewrite this as
+\[\partial_tu_i+\pdv{\vb{f_i}}{u_j}\vdot\grad u_j=0.\]
+We can diagonalize this matrix (for each $i$, I think?), and we will find
+\[\partial_tr_i+\boldsymbol{\lambda_i}\vdot\grad r_i=0.\]
+This motivates looking at the \textbf{advection equation}, which is a linear, hyperbolic, first-order PDE:
+\[\boxed{\partial_tu+\lambda\partial_xu=0}.\]
+Here, $\lambda$ is a constant. We can rewrite this in conservation form as
+\[\partial_tu+\partial_x(\lambda u)=0.\]
+This is a conservation law in 1D. Given an initial condition $u(t=0,x)=f(x)$, the solution to the advection equation is
+\[u(t,x)=f(x-\lambda t).\]
+Very simple. Now, let's discretize this, and put it on a grid. Define shorthand notation
+\[u_j^n=u(t^n,x_j),\]
+such that $t^n=n\Delta t$, and $x_j=j\Delta x$. Under an appropriate discretization scheme, we have
+\[\frac{u^{n+1}_j-u^n_j}{\Delta t}+\lambda\frac{u^n_{j+1}-u^n_{j-1}}{2\Delta x}=0.\]
+The diagram for the discretization is known as the \textbf{molecule} for the scheme. The update rule is
+\[u_j^{n+1}=u_j^n-\frac{\lambda\Delta t}{2\Delta x}\qty(u_{j+1}^n-u_{j-1}^n).\]
+This is known as the \textbf{Forward-Time Centered-Space (FTCS)} scheme. It is an explicit scheme, but it suffers from similar problems as the forward Euler scheme.
+
+Let's do \textbf{von Neumann stability analysis}. To do this, take an ansatz,
+\[u_j^n=\eps^ne^{ik\Delta xj}.\]
+How does $\eps^n$ evolve? Since the advection equation is linear, this $\eps$ could model some additive noise. Then
+\[\eps^{n+1}=\eps^n-\frac{\lambda\Delta t}{\Delta x}\frac{e^{ik\Delta x}-e^{-ik\Delta x}}{2}.\]
+Now, define some amplification factor,
+\[\abs{A}^2=\abs{\frac{\eps^{n+1}}{\eps^n}}^2=1+\qty(\frac{\lambda\Delta t}{\Delta x})^2\sin^2(k\Delta x)\geq1.\]
+This is \textbf{unconditionally unstable}, which is bad.
+
+What if we try a \textbf{Forward-Time Left-Space (FTLS)} scheme? In this scheme,
+\[\partial_xu\to\frac{u_j^n-u_{j-1}^n}{\Delta x}.\]
+If we repeat the same analysis, it turns out that
+\[\abs{A}^2=1-4\frac{\lambda\Delta t}{\Delta x}\qty(1-\frac{\lambda\Delta t}{\Delta x})\sin^2(\frac{k\Delta x}{2}).\]
+In terms of accuracy, the approximation of the first derivative is worse. But, the amplification factor looks like it could be less than $1$. The condition is that
+\[\boxed{\frac{\Delta x}{\Delta t}>\lambda}.\]
+This scheme is \textbf{conditionally stable}. This limit is known as the \textbf{Courant–Friedrichs–Lewy (CFL) condition}. The intuition has to deal with \textbf{upwinding}, in thinking about the causal structure of the spacetime. In practice, we choose some constant $c\in(0,1)$, then impose that
+\[\Delta t=c\min\qty(\frac{\Delta x}{\lambda}).\]
+Moving back to the original problem, we discretize 3D space into voxels. Then,
+\begin{align*}
+    U_{ijk}(\Delta t)&=U_{ijk}(0)+\sum_{\text{faces}}\int_0^{\Delta t}\dd{t}\int_{A_i}\dd{\vb{A_i}}\vdot\vb{f}\\
+    &\approx U_{ijk}(0)+\Delta t\sum_{\text{faces}}\vb{f_i}^{\mathrm{num}}\vdot\Delta\vb{A_i}.
+\end{align*}
+In this case, the upwinding is much more complicated. We use this upwinding to compute the numerical approximation to $\vb{f_i}$. The update steps can then be done by forward Euler, Runge-Kutta, etc.
+
+Often, we don't actually have $\vb{f}(u)$. Instead, we have
+\[\partial_tu(q)+\div{\vb{f}(q)}=0.\]
+The $q$'s are primitive, the $u$'s are conservative, and the $\vb f$ is flux. For things like advection, the primitive and conservatives are the same. For Newtonian hydrodynamics, they're easy to transform between each other. However, things are much more annoying for problems like relativistic hydrodynamics.
+
+\section{Optimization}
+Python is slow. If there exists a library function for something, don't do it yourself! In particular, avoid loops; prefer vectorized NumPy implementations.
+
+One of the built-in profiling programs in Python is cProfile. Output files from cProfile can be visualized with the Python package flameprof.
+
+Another profiler is the package line\_profiler.
+
+Use these profilers to figure out what parts of your code is slow, before optimization!
+
+File I/O could be done more efficiently by dumping binary instead of converting to strings, and by making use of buffers to write out data.
+
+
+
 
 \newpage
 \appendix
